@@ -25,7 +25,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app import agent_defaults as agent_defaults_store
-from app.anthropic_client import get_agent, list_agents
+from app import invocation_log as invocation_log_store
+from app.anthropic_client import create_session, get_agent, list_agents, send_user_message
 from app.config import settings
 from app.deps import require_admin_token, require_mag_auth
 from app.sync import sync_from_anthropic
@@ -60,6 +61,36 @@ class AgentDefaultsList(BaseModel):
 
 class DeleteResult(BaseModel):
     deleted: bool
+
+
+class EventRef(BaseModel):
+    store: str = Field(..., min_length=1, description="Caller-side table/store name, e.g. 'oex_webhook_events'")
+    id: str = Field(..., min_length=1, description="Row id in that store (usually a UUID)")
+
+
+class InvokeAgentPayload(BaseModel):
+    source: str = Field(..., min_length=1, description="e.g. 'emailbison', 'cal.com'")
+    event_name: str = Field(..., min_length=1, description="e.g. 'lead_replied', 'BOOKING_CREATED'")
+    event_ref: EventRef = Field(..., description="Pointer to the stored raw payload in the caller's DB")
+    title: str | None = Field(default=None, description="Optional session title override")
+    idempotency_key: str | None = Field(
+        default=None,
+        description=(
+            "Optional caller-supplied key. If supplied and seen before, the "
+            "original InvokeAgentResult is replayed and no new Anthropic "
+            "session is created. Callers retrying after a transient failure "
+            "should pass a stable key (e.g. the webhook-ingest row id) to "
+            "avoid duplicate agent sessions."
+        ),
+    )
+
+
+class InvokeAgentResult(BaseModel):
+    session_id: str
+    agent_id: str
+    environment_id: str
+    vault_ids: list[str]
+    status: str
 
 
 # ----- App ------------------------------------------------------------------
@@ -180,6 +211,127 @@ def delete_agent_defaults(agent_id: str) -> DeleteResult:
     if not deleted:
         raise HTTPException(status_code=404, detail="No defaults configured for this agent")
     return DeleteResult(deleted=True)
+
+
+# ----- Internal invocation gateway ------------------------------------------
+#
+# Called by ops-engine-x once it has routed an event to a specific agent_id.
+# ops-engine-x already decided which agent fires; this endpoint does not
+# inspect (source, event_name) to pick an agent — it just invokes the agent
+# in the URL. See MANAGED-AGENTS-BRIEF.md §"Hold-the-line rules" #1.
+#
+# Auth: MAG_AUTH_TOKEN (same inbound bearer as the frontend-facing surface
+# today; distinct route prefix `/internal/*` makes the surface separable when
+# frontend auth diverges later).
+
+def _format_event_message(
+    source: str,
+    event_name: str,
+    event_ref: EventRef,
+    task_instruction: str | None = None,
+) -> str:
+    """Compose the first user.message sent into the new Anthropic session.
+
+    Byte-for-byte identical to ops-engine-x's `_format_event_message` so the
+    agent-side kickoff-format contract is stable across the cutover.
+    """
+    body = (
+        f"source: {source}\n"
+        f"event_name: {event_name}\n"
+        f"event_ref: {json.dumps(event_ref.model_dump())}\n"
+    )
+    if task_instruction:
+        return f"{task_instruction.rstrip()}\n\n{body}"
+    return body
+
+
+@app.post(
+    "/internal/agents/{agent_id}/invoke",
+    dependencies=[Depends(require_mag_auth)],
+    response_model=InvokeAgentResult,
+)
+def invoke_agent(agent_id: str, payload: InvokeAgentPayload) -> InvokeAgentResult:
+    """Server-to-server invocation. Creates an Anthropic session against the
+    given `agent_id` (resolving environment_id + vault_ids + task_instruction
+    from agent_defaults) and posts the formatted event kickoff as the first
+    user message.
+
+    Idempotency: if `payload.idempotency_key` is supplied and a prior
+    invocation with the same key succeeded, the stored InvokeAgentResult is
+    returned verbatim with no new Anthropic session. See `invocation_log`.
+    """
+    if payload.idempotency_key:
+        cached = invocation_log_store.get_response(payload.idempotency_key)
+        if cached is not None:
+            return InvokeAgentResult(**cached)
+
+    defaults = agent_defaults_store.get(agent_id)
+    if defaults is None:
+        raise HTTPException(
+            status_code=409,
+            detail=f"No agent_defaults configured for agent_id={agent_id}",
+        )
+
+    metadata = {
+        "source": payload.source,
+        "event_name": payload.event_name,
+        "event_ref_store": payload.event_ref.store,
+        "event_ref_id": payload.event_ref.id,
+    }
+    title = payload.title or f"{payload.source}:{payload.event_name}"
+
+    try:
+        session = create_session(
+            agent_id=agent_id,
+            environment_id=defaults["environment_id"],
+            vault_ids=defaults["vault_ids"],
+            title=title,
+            metadata=metadata,
+        )
+    except httpx.HTTPStatusError as exc:
+        return _passthrough_upstream_error(exc)  # type: ignore[return-value]
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"create_session failed: {exc}") from exc
+
+    try:
+        send_user_message(
+            session_id=session["id"],
+            text=_format_event_message(
+                payload.source,
+                payload.event_name,
+                payload.event_ref,
+                defaults.get("task_instruction"),
+            ),
+        )
+    except httpx.HTTPStatusError as exc:
+        return _passthrough_upstream_error(exc)  # type: ignore[return-value]
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"send_user_message failed: {exc}",
+        ) from exc
+
+    result = InvokeAgentResult(
+        session_id=session["id"],
+        agent_id=agent_id,
+        environment_id=defaults["environment_id"],
+        vault_ids=list(defaults["vault_ids"]),
+        status=session.get("status", "unknown"),
+    )
+
+    if payload.idempotency_key:
+        # ON CONFLICT DO NOTHING — a race loser silently proceeds and returns
+        # its own freshly-created session's result. V1 trade-off: the losing
+        # racer leaves a duplicate Anthropic session behind (see migration
+        # comment on invocation_log).
+        invocation_log_store.insert(
+            payload.idempotency_key,
+            result.session_id,
+            agent_id,
+            result.model_dump(),
+        )
+
+    return result
 
 
 # ----- Anthropic passthrough (live reads) -----------------------------------

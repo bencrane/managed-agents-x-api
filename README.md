@@ -34,7 +34,7 @@ Secrets this project **does** expect:
 
 | Name | Required | Notes |
 | ---- | -------- | ----- |
-| `MAG_AUTH_TOKEN` | required | Inbound bearer token callers present when calling this service. Gates every non-public route (currently `/admin/status`; future `/agents*` surface). On the caller side this is paired with `MAG_API_URL` (the caller's pointer at this service's base URL, e.g. `https://managed-agents-x.up.railway.app`), which lives in the **caller's** Doppler config, not this one. |
+| `MAG_AUTH_TOKEN` | required | Inbound bearer token callers present when calling this service. Gates every non-public route: `/admin/status`, `/admin/sync/anthropic`, the `/agents*` surface, and the server-to-server `POST /internal/agents/{agent_id}/invoke` gateway that `ops-engine-x` hits once it has resolved an event to an agent. The **same value must exist in `ops-engine-x`'s Doppler `prd` config** (also as `MAG_AUTH_TOKEN`) so its outbound call authenticates. On the caller side this is paired with `MAG_API_URL` (`https://api.managedagents.run`), which lives in the **caller's** Doppler config, not this one. |
 | `ANTHROPIC_API_KEY` | required (when Anthropic code paths land) | Anthropic API key. **Lives here**, not in `ops-engine-x`. `managed-agents-x` is the designated holder of Anthropic credentials for the platform. |
 | `SUPABASE_DB_URL` | optional (reserved) | Postgres connection string. Reserved for when agent-definition storage lands. |
 | `SUPABASE_URL` | optional (reserved) | Reserved. |
