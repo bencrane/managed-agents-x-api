@@ -1,0 +1,3 @@
+setup:
+  project: managed-agents-x
+  config: prd

@@ -20,7 +20,7 @@ BETA_HEADER = "managed-agents-2026-04-01"
 
 def _headers() -> dict[str, str]:
     return {
-        "x-api-key": require("anthropic_api_key"),
+        "x-api-key": require("anthropic_managed_agents_api_key"),
         "anthropic-version": API_VERSION,
         "anthropic-beta": BETA_HEADER,
         "content-type": "application/json",

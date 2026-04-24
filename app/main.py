@@ -133,7 +133,7 @@ def admin_status() -> dict[str, object]:
         "status": "ok",
         "secrets_loaded": {
             "mag_auth_token": bool(settings.mag_auth_token),
-            "anthropic_api_key": bool(settings.anthropic_api_key),
+            "anthropic_managed_agents_api_key": bool(settings.anthropic_managed_agents_api_key),
             "supabase_db_url": bool(settings.supabase_db_url),
         },
     }

@@ -6,8 +6,9 @@ agent_defaults row so the serx webhook can resolve (environment_id, vault_ids)
 at session-create time.
 
 Usage:
-  doppler run -p managed-agents-x -c prd -- \\
-    python -m scripts.setup_orchestrator <name>
+  ./scripts/doppler run -- python -m scripts.setup_orchestrator <name>
+
+(Project/config come from doppler.yaml at the repo root.)
 
 Where <name> is one of:
   new-booking-orchestrator
@@ -131,7 +132,7 @@ def create_agent(name: str, system: str, mcp_names: list[str]) -> dict:
         data=json.dumps(body).encode(),
         method="POST",
         headers={
-            "x-api-key": require("anthropic_api_key"),
+            "x-api-key": require("anthropic_managed_agents_api_key"),
             "anthropic-version": "2023-06-01",
             "anthropic-beta": "managed-agents-2026-04-01",
             "content-type": "application/json",

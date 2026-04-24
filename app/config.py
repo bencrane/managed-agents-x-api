@@ -14,13 +14,13 @@ Notes on a few specific fields:
   into this service (future `/agents*` surface, `/admin/status`, etc.). It's
   the one secret the authenticated surface treats as required. Paired on the
   caller side with `MAG_API_URL` (the caller's pointer at this service).
-- `anthropic_api_key` **does** belong to this project (opposite of
-  `ops-engine-x`, where it is deliberately absent). `managed-agents-x` is
-  the designated owner of the Anthropic managed-agents product surface
-  (agent CRUD, system-prompt versioning, sync), so the Anthropic API key
-  is expected to live in this project's Doppler config. Add
-  `ANTHROPIC_API_KEY` to the `prd` config before exercising any code path
-  that calls Anthropic.
+- `anthropic_managed_agents_api_key` **does** belong to this project
+  (opposite of `ops-engine-x`, where it is deliberately absent).
+  `managed-agents-x` is the designated owner of the Anthropic
+  managed-agents product surface (agent CRUD, system-prompt versioning,
+  sync), so the Anthropic API key is expected to live in this project's
+  Doppler config. Add `ANTHROPIC_MANAGED_AGENTS_API_KEY` to the `prd`
+  config before exercising any code path that calls Anthropic.
 - The `supabase_*` fields are reserved for future use; the skeleton does
   not read them yet.
 """
@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     )
 
     mag_auth_token: str | None = None
-    anthropic_api_key: str | None = None
+    anthropic_managed_agents_api_key: str | None = None
 
     supabase_url: str | None = None
     supabase_service_role_key: str | None = None

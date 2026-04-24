@@ -35,7 +35,7 @@ Secrets this project **does** expect:
 | Name | Required | Notes |
 | ---- | -------- | ----- |
 | `MAG_AUTH_TOKEN` | required | Inbound bearer token callers present when calling this service. Gates every non-public route: `/admin/status`, `/admin/sync/anthropic`, the `/agents*` surface, and the server-to-server `POST /internal/agents/{agent_id}/invoke` gateway that `ops-engine-x` hits once it has resolved an event to an agent. The **same value must exist in `ops-engine-x`'s Doppler `prd` config** (also as `MAG_AUTH_TOKEN`) so its outbound call authenticates. On the caller side this is paired with `MAG_API_URL` (`https://api.managedagents.run`), which lives in the **caller's** Doppler config, not this one. |
-| `ANTHROPIC_API_KEY` | required (when Anthropic code paths land) | Anthropic API key. **Lives here**, not in `ops-engine-x`. `managed-agents-x` is the designated holder of Anthropic credentials for the platform. |
+| `ANTHROPIC_MANAGED_AGENTS_API_KEY` | required (when Anthropic code paths land) | Anthropic API key scoped to the managed-agents product. **Lives here**, not in `ops-engine-x`. `managed-agents-x` is the designated holder of Anthropic credentials for the platform. |
 | `SUPABASE_DB_URL` | optional (reserved) | Postgres connection string. Reserved for when agent-definition storage lands. |
 | `SUPABASE_URL` | optional (reserved) | Reserved. |
 | `SUPABASE_SERVICE_ROLE_KEY` | optional (reserved) | Reserved. |
@@ -101,7 +101,7 @@ curl localhost:8080/health    # {"status":"ok"}
 curl localhost:8080/          # {"service":"managed-agents-x","status":"ok"}
 curl -H "Authorization: Bearer $MAG_AUTH_TOKEN" localhost:8080/admin/status
 # → {"service":"managed-agents-x","status":"ok",
-#    "secrets_loaded":{"mag_auth_token":true,"anthropic_api_key":true}}
+#    "secrets_loaded":{"mag_auth_token":true,"anthropic_managed_agents_api_key":true}}
 ```
 
 You can also smoke the container locally without Doppler (the entrypoint falls back to plain uvicorn):
