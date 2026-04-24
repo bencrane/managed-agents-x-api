@@ -34,13 +34,15 @@ Secrets this project **does** expect:
 
 | Name | Required | Notes |
 | ---- | -------- | ----- |
-| `MAG_AUTH_TOKEN` | required | Inbound bearer token callers present when calling this service. Gates every non-public route: `/admin/status`, `/admin/sync/anthropic`, the `/agents*` surface, and the server-to-server `POST /internal/agents/{agent_id}/invoke` gateway that `ops-engine-x` hits once it has resolved an event to an agent. The **same value must exist in `ops-engine-x`'s Doppler `prd` config** (also as `MAG_AUTH_TOKEN`) so its outbound call authenticates. On the caller side this is paired with `MAG_API_URL` (`https://api.managedagents.run`), which lives in the **caller's** Doppler config, not this one. |
+| `MAGS_AUTH_TOKEN` | required | Inbound bearer token callers present when calling this service. Gates every non-public route: `/admin/status`, `/admin/sync/anthropic`, the `/agents*` surface, and the server-to-server `POST /internal/agents/{agent_id}/invoke` gateway that `ops-engine-x` hits once it has resolved an event to an agent. The **same value must exist in `ops-engine-x`'s Doppler `prd` config** (also as `MAGS_AUTH_TOKEN`) so its outbound call authenticates. On the caller side this is paired with `MAG_API_URL` (`https://api.managedagents.run`), which lives in the **caller's** Doppler config, not this one. |
 | `ANTHROPIC_MANAGED_AGENTS_API_KEY` | required (when Anthropic code paths land) | Anthropic API key scoped to the managed-agents product. **Lives here**, not in `ops-engine-x`. `managed-agents-x` is the designated holder of Anthropic credentials for the platform. |
-| `SUPABASE_DB_URL` | optional (reserved) | Postgres connection string. Reserved for when agent-definition storage lands. |
-| `SUPABASE_URL` | optional (reserved) | Reserved. |
-| `SUPABASE_SERVICE_ROLE_KEY` | optional (reserved) | Reserved. |
-| `SUPABASE_ANON_KEY` | optional (reserved) | Reserved. |
-| `SUPABASE_PROJECT_REF` | optional (reserved) | Supabase project ref slug. |
+| `MAGS_DB_URL_POOLED` | required (when DB code paths run) | Postgres DSN using Supabase's transaction pooler. This is what the app uses at runtime. |
+| `MAGS_DB_URL_DIRECT` | optional (reserved) | Direct Postgres connection string. Reserved for future migration scripts; not read by the app at runtime. |
+| `MAGS_SUPABASE_URL` | optional (reserved) | Reserved. |
+| `MAGS_SUPABASE_SERVICE_ROLE_KEY` | optional (reserved) | Reserved. |
+| `MAGS_SUPABASE_ANON_KEY` | optional (reserved) | Reserved. |
+| `MAGS_SUPABASE_PUBLISHABLE_KEY` | optional (reserved) | Reserved. |
+| `MAGS_SUPABASE_PROJECT_REF` | optional (reserved) | Supabase project ref slug. |
 
 Secrets this project **does NOT expect** (deliberate):
 
@@ -99,9 +101,9 @@ Smoke test:
 ```bash
 curl localhost:8080/health    # {"status":"ok"}
 curl localhost:8080/          # {"service":"managed-agents-x","status":"ok"}
-curl -H "Authorization: Bearer $MAG_AUTH_TOKEN" localhost:8080/admin/status
+curl -H "Authorization: Bearer $MAGS_AUTH_TOKEN" localhost:8080/admin/status
 # → {"service":"managed-agents-x","status":"ok",
-#    "secrets_loaded":{"mag_auth_token":true,"anthropic_managed_agents_api_key":true}}
+#    "secrets_loaded":{"mags_auth_token":true,"anthropic_managed_agents_api_key":true}}
 ```
 
 You can also smoke the container locally without Doppler (the entrypoint falls back to plain uvicorn):

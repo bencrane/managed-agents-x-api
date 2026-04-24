@@ -10,7 +10,7 @@ unreachable or a variable is unset. Required secrets are validated lazily
 at the call site that actually needs them (see `require()`).
 
 Notes on a few specific fields:
-- `mag_auth_token` is the inbound bearer token callers present when reaching
+- `mags_auth_token` is the inbound bearer token callers present when reaching
   into this service (future `/agents*` surface, `/admin/status`, etc.). It's
   the one secret the authenticated surface treats as required. Paired on the
   caller side with `MAG_API_URL` (the caller's pointer at this service).
@@ -21,8 +21,12 @@ Notes on a few specific fields:
   sync), so the Anthropic API key is expected to live in this project's
   Doppler config. Add `ANTHROPIC_MANAGED_AGENTS_API_KEY` to the `prd`
   config before exercising any code path that calls Anthropic.
-- The `supabase_*` fields are reserved for future use; the skeleton does
-  not read them yet.
+- `mags_db_url_pooled` is the Postgres DSN the app uses at runtime
+  (Supabase transaction pooler). `mags_db_url_direct` is the direct
+  connection, exposed as a separate setting for future migration scripts
+  and not read by the app at runtime.
+- The remaining `mags_supabase_*` fields are reserved for future use; the
+  skeleton does not read them yet.
 """
 
 from __future__ import annotations
@@ -36,14 +40,17 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    mag_auth_token: str | None = None
+    mags_auth_token: str | None = None
     anthropic_managed_agents_api_key: str | None = None
 
-    supabase_url: str | None = None
-    supabase_service_role_key: str | None = None
-    supabase_anon_key: str | None = None
-    supabase_db_url: str | None = None
-    supabase_project_ref: str | None = None
+    mags_db_url_pooled: str | None = None
+    mags_db_url_direct: str | None = None
+
+    mags_supabase_url: str | None = None
+    mags_supabase_service_role_key: str | None = None
+    mags_supabase_anon_key: str | None = None
+    mags_supabase_publishable_key: str | None = None
+    mags_supabase_project_ref: str | None = None
 
 
 settings = Settings()
@@ -57,7 +64,7 @@ def require(name: str) -> str:
     """Fetch a required secret by attribute name, raising a clear error if unset.
 
     Use this at the call site of any feature that genuinely needs the secret,
-    e.g. `token = require("mag_auth_token")`. This keeps startup tolerant
+    e.g. `token = require("mags_auth_token")`. This keeps startup tolerant
     while failing loudly and clearly when a feature is exercised without its
     required configuration.
     """

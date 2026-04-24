@@ -10,20 +10,20 @@ from app.config import settings
 
 
 def require_mag_auth(authorization: str | None = Header(default=None)) -> None:
-    """Bearer-token gate using MAG_AUTH_TOKEN from Doppler.
+    """Bearer-token gate using MAGS_AUTH_TOKEN from Doppler.
 
     This is the inbound auth check for every non-public route in
-    managed-agents-x. `MAG_AUTH_TOKEN` grants access *into* this service;
+    managed-agents-x. `MAGS_AUTH_TOKEN` grants access *into* this service;
     callers (future domain services, internal tools, the ops-engine-x
     routing layer) present it when calling `/admin/status` and the future
     `/agents*` surface. On the caller side it is paired with `MAG_API_URL`
     (the pointer at this service's base URL).
     """
-    expected = settings.mag_auth_token
+    expected = settings.mags_auth_token
     if not expected:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="MAG_AUTH_TOKEN not configured (check Doppler).",
+            detail="MAGS_AUTH_TOKEN not configured (check Doppler).",
         )
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")

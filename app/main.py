@@ -9,7 +9,7 @@ requires a secret reads it lazily via `app.config.require(...)` (or via the
 relevant FastAPI `Depends()`), so `/health` stays green even when Doppler is
 unreachable or individual secrets are unset.
 
-Inbound auth is `MAG_AUTH_TOKEN` (bearer), checked via
+Inbound auth is `MAGS_AUTH_TOKEN` (bearer), checked via
 `app.deps.require_mag_auth`. The `require_admin_token` alias on the same
 module is used by handlers ported from ops-engine-x.
 """
@@ -102,7 +102,7 @@ app = FastAPI(
         "Managed-agents product surface. Wraps Anthropic's managed-agents API "
         "and stores per-agent defaults plus version history. Future home of "
         "CRUD, system-prompt versioning, drafts/templates, A/B tests, and "
-        "analytics. All non-public routes require a bearer MAG_AUTH_TOKEN."
+        "analytics. All non-public routes require a bearer MAGS_AUTH_TOKEN."
     ),
 )
 
@@ -132,9 +132,9 @@ def admin_status() -> dict[str, object]:
         "service": "managed-agents-x",
         "status": "ok",
         "secrets_loaded": {
-            "mag_auth_token": bool(settings.mag_auth_token),
+            "mags_auth_token": bool(settings.mags_auth_token),
             "anthropic_managed_agents_api_key": bool(settings.anthropic_managed_agents_api_key),
-            "supabase_db_url": bool(settings.supabase_db_url),
+            "mags_db_url_pooled": bool(settings.mags_db_url_pooled),
         },
     }
 
@@ -220,7 +220,7 @@ def delete_agent_defaults(agent_id: str) -> DeleteResult:
 # inspect (source, event_name) to pick an agent — it just invokes the agent
 # in the URL. See MANAGED-AGENTS-BRIEF.md §"Hold-the-line rules" #1.
 #
-# Auth: MAG_AUTH_TOKEN (same inbound bearer as the frontend-facing surface
+# Auth: MAGS_AUTH_TOKEN (same inbound bearer as the frontend-facing surface
 # today; distinct route prefix `/internal/*` makes the surface separable when
 # frontend auth diverges later).
 
