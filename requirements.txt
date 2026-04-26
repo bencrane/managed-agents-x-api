@@ -4,6 +4,6 @@ pydantic==2.10.3
 pydantic-settings==2.7.0
 httpx==0.28.1
 psycopg[binary]==3.3.3
-# AUX shared M2M lib — owns JWKS verification, FastAPI auth deps, M2M client.
-# Pinned to main during cutover; will pin to v0.1.0 once all backends are live.
-aux-m2m[server] @ git+https://github.com/bencrane/aux-m2m-client-py@main
+# AUX shared M2M lib — owns JWKS verification, FastAPI auth deps, M2M client,
+# and the depth-health router (`build_health_router`).
+aux-m2m[server] @ git+https://github.com/bencrane/aux-m2m-client-py@v0.2.0

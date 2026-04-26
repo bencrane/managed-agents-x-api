@@ -33,10 +33,14 @@ from pydantic import BaseModel, Field
 from app import agent_defaults as agent_defaults_store
 from app import invocation_log as invocation_log_store
 from app.anthropic_client import create_session, get_agent, list_agents, send_user_message
-from aux_m2m_server import require_m2m, require_session
+from aux_m2m_client import AsyncM2MTokenClient
+from aux_m2m_server import build_health_router, require_m2m, require_session
 
 from app.config import settings
 from app.sync import sync_from_anthropic
+
+
+APP_VERSION = "0.1.0"
 
 
 # ----- Pydantic models ------------------------------------------------------
@@ -104,7 +108,7 @@ class InvokeAgentResult(BaseModel):
 
 app = FastAPI(
     title="managed-agents-x",
-    version="0.1.0",
+    version=APP_VERSION,
     description=(
         "Managed-agents product surface. Wraps Anthropic's managed-agents API "
         "and stores per-agent defaults plus version history. Future home of "
@@ -116,10 +120,34 @@ app = FastAPI(
 )
 
 
-@app.get("/health")
-def health() -> dict[str, str]:
-    """Public liveness probe. No deps, no secrets, always 200."""
-    return {"status": "ok"}
+# ----- Health router --------------------------------------------------------
+#
+# Library-provided depth-health router (aux_m2m_server.build_health_router).
+# Exposes:
+#   GET /api/health        — liveness, always 200, no checks
+#   GET /api/health/deep   — depth check (200 healthy / 503 unhealthy)
+#
+# Deep check exercises:
+#   1. JWKS reachability (receiver-side trust)
+#   2. Local M2M mintability (caller-side trust — proves AUX_M2M_API_KEY works
+#      even though MAGS is largely receive-only)
+#   3. Each declared peer's /api/health reachability
+#
+# MAGS is receive-only with respect to AUX peers — its only outbound traffic is
+# to Anthropic's managed-agents API (see app/anthropic_client.py). It is the
+# *target* of /internal/agents/{id}/invoke calls from ops-engine-x and friends,
+# not the caller. Therefore peers={}.
+
+_peer_token_client = AsyncM2MTokenClient(settings.to_m2m_config())
+
+app.include_router(
+    build_health_router(
+        service_name="mags",
+        version=APP_VERSION,
+        token_client=_peer_token_client,
+        peers={},
+    )
+)
 
 
 @app.get("/")
