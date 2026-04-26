@@ -52,6 +52,19 @@ def get_agent(agent_id: str) -> dict:
         return resp.json()
 
 
+def update_agent(agent_id: str, body: dict) -> dict:
+    """POST /v1/agents/{id} — fields present in body replace their prior value."""
+    with httpx.Client(base_url=BASE_URL, timeout=30.0) as client:
+        resp = client.post(f"/v1/agents/{agent_id}", headers=_headers(), json=body)
+        if resp.status_code >= 400:
+            raise httpx.HTTPStatusError(
+                f"{resp.status_code} {resp.reason_phrase}: {resp.text}",
+                request=resp.request,
+                response=resp,
+            )
+        return resp.json()
+
+
 def create_session(
     agent_id: str,
     environment_id: str,

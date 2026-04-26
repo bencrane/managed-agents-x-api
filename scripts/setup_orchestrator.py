@@ -42,6 +42,7 @@ _MCP = {
     "github-oex":     {"type": "url", "name": "github-oex",     "url": "https://api.githubcopilot.com/mcp"},
     "exa":            {"type": "url", "name": "exa",            "url": "https://mcp.exa.ai/mcp"},
     "stripe":         {"type": "url", "name": "stripe",         "url": "https://mcp.stripe.com/"},
+    "dex-mcp":        {"type": "url", "name": "dex-mcp",        "url": "https://dex-mcp.up.railway.app/mcp"},
 }
 
 # Autonomous — no human-in-the-loop. Orchestrators fire from webhooks.
@@ -106,7 +107,7 @@ AGENTS: dict[str, dict] = {
         ),
     },
     "inbox-orchestrator": {
-        "mcps": ["oex-mcp", "serx-mcp", "resend-mcp", "emailbison"],
+        "mcps": ["oex-mcp", "serx-mcp", "resend-mcp", "emailbison", "github-oex", "dex-mcp"],
         "system": (
             "You are the inbox-orchestrator. You are triggered by oex-webhook-ingest "
             "for every relevant EmailBison event (replies, interested, unsubscribes, "
